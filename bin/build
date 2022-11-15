@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+python_libs="${BP_PREINSTALL_PYTHON_LIBS}"
+
+layers_dir="$1"
+env_dir="$2/env"
+plan_path="$3"
+
+jcp_layer=$layers_dir/jcp
+mkdir -p $jcp_layer
+
+echo "[types]" > ${jcp_layer}.toml
+echo "launch = true" >> ${jcp_layer}.toml
+echo "build = true" >> ${jcp_layer}.toml
+echo "cache = true" >> ${jcp_layer}.toml
+
+jcp_env_dir=$jcp_layer/env
+mkdir -p $jcp_env_dir
+
+pip_dir="$jcp_layer/site-packages"
+export PYTHONPATH="$pip_dir:$PYTHONPATH"
+echo -n "$pip_dir" > $jcp_env_dir/PYTHONPATH.prepend
+echo -n ":" > $jcp_env_dir/PYTHONPATH.delim
+
+# Cache invalidation based on python_libs content
+libs_cache_file="$jcp_layer/python_libs.cache"
+
+if [[ -f "$libs_cache_file" ]] && [[ "$(cat "$libs_cache_file")" == "$python_libs" ]]; then
+  echo "Python libraries are cached"
+else
+  echo "Installing Python libraries: $python_libs"
+  pip install $python_libs --target="$pip_dir" --exists-action=w --compile --disable-pip-version-check
+  echo -n "$python_libs" > "$libs_cache_file"
+fi
+
+exit 0
